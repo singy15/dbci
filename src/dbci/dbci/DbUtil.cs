@@ -55,6 +55,15 @@ namespace dbci
                 return reader;
             }
         }
+        public int Execute(IDbTransaction tx, string sql)
+        {
+            using (var cmd = tx.Connection.CreateCommand())
+            {
+                cmd.CommandText = sql;
+                return cmd.ExecuteNonQuery();
+            }
+        }
+
 
         public long Insert(IDbTransaction tx, string tableName, Dictionary<string, object> param) { 
 

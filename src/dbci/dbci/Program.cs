@@ -15,7 +15,7 @@ namespace dbci
 
             app.ExtendedHelpText = "Help";
 
-            var connStr = @"Data Source=C:\root\wk\dbci\dbci\test.db";
+            var connStr = @"Data Source=test.db";
 
             app.Command("export", (cmd) =>
             {

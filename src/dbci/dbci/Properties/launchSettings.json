@@ -1,8 +1,7 @@
 {
   "profiles": {
     "dbci": {
-      "commandName": "Project",
-      "commandLineArgs": "import \"c:\\root\\tmp\\sale.csv\" sale"
+      "commandName": "Project"
     }
   }
 }
