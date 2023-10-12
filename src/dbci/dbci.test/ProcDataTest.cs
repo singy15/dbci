@@ -1,12 +1,12 @@
 using NUnit.Framework;
+using System;
+using System.Configuration;
 using System.Data.SQLite;
 
 namespace dbci.test
 {
     public class ProcDataTest
     {
-        private string _connStr = @"Data Source=test.db";
-
         [SetUp]
         public void Setup()
         {
@@ -16,7 +16,7 @@ namespace dbci.test
         [Ignore("Execute only when you need")]
         public void CreateDatabaseForTest()
         {
-            using (var conn = new SQLiteConnection(_connStr))
+            using (var conn = new SQLiteConnection(GetConnectionStringByName("main")))
             {
                 conn.Open();
 
@@ -111,7 +111,7 @@ cross join seq t6;
         {
             var fn = new ProcData();
             var sql = "select * from sale";
-            using (var conn = new SQLiteConnection(_connStr))
+            using (var conn = new SQLiteConnection(GetConnectionStringByName("main")))
             {
                 conn.Open();
                 fn.Export(@"out.csv", sql, conn);
@@ -120,15 +120,43 @@ cross join seq t6;
         }
 
         [Test]
+        public void Export_light()
+        {
+            var fn = new ProcData();
+            var sql = "select * from item";
+            using (var conn = new SQLiteConnection(GetConnectionStringByName("main")))
+            {
+                conn.Open();
+                fn.Export(@"item.csv", sql, conn);
+                conn.Close();
+            }
+        }
+
+        [Test]
         public void Import()
         {
             var fn = new ProcData();
-            using (var conn = new SQLiteConnection(_connStr))
+            using (var conn = new SQLiteConnection(GetConnectionStringByName("main")))
             {
                 conn.Open();
                 fn.Import(@"out.csv", "sale", conn);
                 conn.Close();
             }
         }
+
+        [Test]
+        public void Test_GetConnectionStringByName()
+        {
+            Console.WriteLine(GetConnectionStringByName("main"));
+        }
+
+        private static string GetConnectionStringByName(string name)
+        {
+            string returnValue = null;
+            ConnectionStringSettings settings = ConfigurationManager.ConnectionStrings[name];
+            if (settings != null) returnValue = settings.ConnectionString;
+            return returnValue;
+        }
+
     }
 }

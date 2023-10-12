@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Configuration;
 using System.Data.SQLite;
 
 namespace dbci
@@ -15,7 +16,7 @@ namespace dbci
 
             app.ExtendedHelpText = "Help";
 
-            var connStr = @"Data Source=test.db";
+            var connStr = GetConnectionStringByName("main");
 
             app.Command("export", (cmd) =>
             {
@@ -57,6 +58,13 @@ namespace dbci
 
 
             app.Execute(args);
+        }
+        private static string GetConnectionStringByName(string name)
+        {
+            string returnValue = null;
+            ConnectionStringSettings settings = ConfigurationManager.ConnectionStrings[name];
+            if (settings != null) returnValue = settings.ConnectionString;
+            return returnValue;
         }
     }
 }

@@ -1,7 +1,8 @@
 {
   "profiles": {
     "dbci": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "commandLineArgs": "export item.csv \"select * from item\""
     }
   }
 }
