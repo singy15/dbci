@@ -7,7 +7,7 @@ using System.Text;
 
 namespace dbci
 {
-    public class CsvLoader
+    public class CsvLoader : IDisposable
     {
         private StreamReader _streamReader;
 
@@ -50,6 +50,10 @@ namespace dbci
             }
 
             return Table.Rows.Count > 0;
+        }
+
+        public void Dispose() {
+            _csvReader.Dispose();
         }
     }
 }

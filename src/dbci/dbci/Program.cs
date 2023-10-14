@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Configuration;
+using System.Data.Common;
 using System.Data.SQLite;
 
 namespace dbci
@@ -8,6 +9,7 @@ namespace dbci
     {
         static void Main(string[] args)
         {
+
             var app = new Microsoft.Extensions.CommandLineUtils.CommandLineApplication(false);
 
             app.Description = "dbci - DataBase Commandline Interface";
@@ -16,21 +18,20 @@ namespace dbci
 
             app.ExtendedHelpText = "Help";
 
-            var connStr = GetConnectionStringByName("main");
-
             app.Command("export", (cmd) =>
             {
                 cmd.Description = "Export table data as CSV";
+                var argDatabase = cmd.Argument("Database", "");
                 var argPath = cmd.Argument("Path", "");
                 var argQuery = cmd.Argument("Query", "");
 
                 cmd.OnExecute(() =>
                 {
-                    using (var conn = new SQLiteConnection(connStr))
+                    using (var conn = DataSourceUtil.Instance.CreateConnection(argDatabase.Value))
                     {
                         conn.Open();
                         var proc = new ProcData();
-                        proc.Export(argPath.Value, argQuery.Value, conn);
+                        proc.Export(argDatabase.Value, argPath.Value, argQuery.Value, conn);
                         conn.Close();
                     }
                     return 0;
@@ -40,16 +41,17 @@ namespace dbci
             app.Command("import", (cmd) =>
             {
                 cmd.Description = "Import table data from CSV";
+                var argDatabase = cmd.Argument("Database", "");
                 var argPath = cmd.Argument("Path", "");
                 var argTable = cmd.Argument("Table", "");
 
                 cmd.OnExecute(() =>
                 {
-                    using (var conn = new SQLiteConnection(connStr))
+                    using (var conn = DataSourceUtil.Instance.CreateConnection(argDatabase.Value))
                     {
                         conn.Open();
                         var proc = new ProcData();
-                        proc.Import(argPath.Value, argTable.Value, conn);
+                        proc.Import(argDatabase.Value, argPath.Value, argTable.Value, conn);
                         conn.Close();
                     }
                     return 0;
@@ -58,13 +60,6 @@ namespace dbci
 
 
             app.Execute(args);
-        }
-        private static string GetConnectionStringByName(string name)
-        {
-            string returnValue = null;
-            ConnectionStringSettings settings = ConfigurationManager.ConnectionStrings[name];
-            if (settings != null) returnValue = settings.ConnectionString;
-            return returnValue;
         }
     }
 }

@@ -2,7 +2,7 @@
   "profiles": {
     "dbci": {
       "commandName": "Project",
-      "commandLineArgs": "export item.csv \"select * from item\""
+      "commandLineArgs": "import test-sqlite3 SALE.csv \"SALE\""
     }
   }
 }

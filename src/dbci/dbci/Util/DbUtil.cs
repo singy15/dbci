@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Data;
+using System.Data.Common;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -25,6 +27,7 @@ namespace dbci
     {
         public IDbConnection Connection { get; }
 
+
         public DbUtil(IDbConnection connection)
         {
             Connection = connection;
@@ -47,7 +50,8 @@ namespace dbci
             }
         }
 
-        public IDataReader OpenReader(IDbTransaction tx, string sql) { 
+        public IDataReader OpenReader(IDbTransaction tx, string sql)
+        {
             using (var cmd = tx.Connection.CreateCommand())
             {
                 cmd.CommandText = sql;
@@ -65,18 +69,20 @@ namespace dbci
         }
 
 
-        public long Insert(IDbTransaction tx, string tableName, Dictionary<string, object> param) { 
+        public long Insert(IDbTransaction tx, string tableName, Dictionary<string, object> param)
+        {
 
             using (var cmd = tx.Connection.CreateCommand())
             {
-                foreach (string k in param.Keys) {
+                foreach (string k in param.Keys)
+                {
                     var prm = cmd.CreateParameter();
                     prm.ParameterName = "@" + k;
                     prm.Direction = ParameterDirection.Input;
                     prm.Value = param[k];
                     cmd.Parameters.Add(prm);
                 }
-                    
+
                 var columns = String.Join(",", param.Keys);
                 var values = String.Join(",", param.Keys.Select(k => "@" + k));
                 var sql = $"insert into {tableName} ({columns}) values ({values}); select last_insert_rowid() as rowid;";
@@ -87,11 +93,13 @@ namespace dbci
             }
         }
 
-        public int Update(IDbTransaction tx, string tableName, Dictionary<string, object> param, Dictionary<string, object> key) { 
+        public int Update(IDbTransaction tx, string tableName, Dictionary<string, object> param, Dictionary<string, object> key)
+        {
 
             using (var cmd = tx.Connection.CreateCommand())
             {
-                foreach (string k in param.Keys) {
+                foreach (string k in param.Keys)
+                {
                     var prm = cmd.CreateParameter();
                     prm.ParameterName = "@" + k;
                     prm.Direction = ParameterDirection.Input;
@@ -99,14 +107,15 @@ namespace dbci
                     cmd.Parameters.Add(prm);
                 }
 
-                foreach (string k in key.Keys) {
+                foreach (string k in key.Keys)
+                {
                     var prm = cmd.CreateParameter();
                     prm.ParameterName = "@key_" + k;
                     prm.Direction = ParameterDirection.Input;
                     prm.Value = key[k];
                     cmd.Parameters.Add(prm);
                 }
-                    
+
                 var values = String.Join(",", param.Keys.Select(k => k + " = @" + k));
                 var conds = String.Join(" and ", key.Keys.Select(k => k + " = @key_" + k));
                 var sql = $"update {tableName} set {values} where 1 = 1 and {conds}";
@@ -116,18 +125,20 @@ namespace dbci
             }
         }
 
-        public int Delete(IDbTransaction tx, string tableName, Dictionary<string, object> param) { 
+        public int Delete(IDbTransaction tx, string tableName, Dictionary<string, object> param)
+        {
 
             using (var cmd = tx.Connection.CreateCommand())
             {
-                foreach (string k in param.Keys) {
+                foreach (string k in param.Keys)
+                {
                     var prm = cmd.CreateParameter();
                     prm.ParameterName = "@" + k;
                     prm.Direction = ParameterDirection.Input;
                     prm.Value = param[k];
                     cmd.Parameters.Add(prm);
                 }
-                    
+
                 var conds = String.Join(" and ", param.Keys.Select(k => k + " = @" + k));
                 var sql = $"delete from {tableName} where 1 = 1 and {conds}";
 
