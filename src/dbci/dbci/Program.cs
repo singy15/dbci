@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Extensions.CommandLineUtils;
+using System;
 using System.Configuration;
 using System.Data.Common;
 using System.Data.SQLite;
@@ -44,6 +45,7 @@ namespace dbci
                 var argDatabase = cmd.Argument("Database", "");
                 var argPath = cmd.Argument("Path", "");
                 var argTable = cmd.Argument("Table", "");
+                var optInitScript = cmd.Option("-i|--init", "Init script", CommandOptionType.SingleValue);
 
                 cmd.OnExecute(() =>
                 {
@@ -51,7 +53,7 @@ namespace dbci
                     {
                         conn.Open();
                         var proc = new ProcData();
-                        proc.Import(argDatabase.Value, argPath.Value, argTable.Value, conn);
+                        proc.Import(argDatabase.Value, argPath.Value, argTable.Value, conn, optInitScript.Value() ?? "");
                         conn.Close();
                     }
                     return 0;

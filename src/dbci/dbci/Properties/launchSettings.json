@@ -2,7 +2,7 @@
   "profiles": {
     "dbci": {
       "commandName": "Project",
-      "commandLineArgs": "import test-sqlite3 SALE.csv \"SALE\""
+      "commandLineArgs": "import test-sqlite3 c:\\root\\tmp\\SALE.csv \"SALE\" -i \"DELETE FROM SALE\""
     }
   }
 }

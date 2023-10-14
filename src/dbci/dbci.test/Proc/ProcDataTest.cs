@@ -51,7 +51,7 @@ namespace dbci.test
                 conn.Open();
                 new ProcData().Export(db, @"ITEM.csv", "SELECT * FROM ITEM", conn);
                 new ProcData().Export(db, @"SALE.csv", "SELECT * FROM SALE", conn);
-                new ProcData().Import(db, @"ITEM.csv", "ITEM", conn);
+                new ProcData().Import(db, @"ITEM.csv", "ITEM", conn, "delete from ITEM");
                 new ProcData().Import(db, @"SALE.csv", "SALE", conn);
                 conn.Close();
             }
@@ -66,7 +66,7 @@ namespace dbci.test
                 conn.Open();
                 new ProcData().Export(db, @"ITEM.csv", "SELECT * FROM ITEM", conn);
                 new ProcData().Export(db, @"SALE.csv", "SELECT * FROM SALE", conn);
-                new ProcData().Import(db, @"ITEM.csv", "ITEM", conn);
+                new ProcData().Import(db, @"ITEM.csv", "ITEM", conn, "delete from ITEM");
                 new ProcData().Import(db, @"SALE.csv", "SALE", conn);
                 conn.Close();
             }

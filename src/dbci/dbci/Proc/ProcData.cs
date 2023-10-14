@@ -67,7 +67,7 @@ namespace dbci
             return 0;
         }
 
-        public int Import(string database, string path, string table, IDbConnection conn)
+        public int Import(string database, string path, string table, IDbConnection conn, string initScript = "")
         {
             var sqlgen = new CompatibleSqlGenerator();
 
@@ -77,7 +77,7 @@ namespace dbci
                 {
                     cmd.Connection = conn;
                     cmd.Transaction = tx;
-                    var sql = sqlgen.DeleteAll(database, table);
+                    var sql = (initScript != "")? initScript : sqlgen.DeleteAll(database, table);
                     cmd.CommandText = sql;
                     cmd.ExecuteNonQuery();
                     tx.Commit();
