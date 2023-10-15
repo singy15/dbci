@@ -44,8 +44,14 @@ namespace dbci
             return conn;
         }
 
-        public Compiler GetCompiler(string name) { 
-            return _compiler[GetDataSourceSetting(name).ProviderName];
+        public Compiler GetCompiler(string name) {
+            var providerName = GetDataSourceSetting(name).ProviderName;
+            if(_compiler.ContainsKey(providerName))
+            {
+                throw new BusinessLogicException($"Compiler for provider '{providerName}' does not registered, the provider is currently not supported.");
+            }
+
+            return _compiler[providerName];
         }
 
         public string GetProviderName(string name) { 
@@ -56,7 +62,7 @@ namespace dbci
             ConnectionStringSettings settings = ConfigurationManager.ConnectionStrings[name];
             if (null == settings)
             {
-                throw new ArgumentException($"DataSource '{name}' does not registered. Please configuration .config properly.");
+                throw new BusinessLogicException($"DataSource '{name}' does not registered. Please configure .config properly.");
             }
 
             return settings;

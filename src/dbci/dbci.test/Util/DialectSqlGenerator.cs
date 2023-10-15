@@ -28,9 +28,10 @@ namespace dbci.test
             dt.Rows.Add(2, "test2");
 
             Assert.That(gen.GenerateOracleInsertAll("item", dt), Is.EqualTo(@"INSERT ALL 
-INTO item (id,name) values ('1','test1') 
-INTO item (id,name) values ('2','test2') 
-SELECT * FROM DUAL"));
+INTO item (""id"",""name"") values ('1','test1') 
+INTO item (""id"",""name"") values ('2','test2') 
+SELECT * FROM DUAL
+"));
         }
     }
 }

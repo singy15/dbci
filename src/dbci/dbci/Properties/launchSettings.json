@@ -1,8 +1,7 @@
 {
   "profiles": {
     "dbci": {
-      "commandName": "Project",
-      "commandLineArgs": "start-sqlldr-driver"
+      "commandName": "Project"
     }
   }
 }
