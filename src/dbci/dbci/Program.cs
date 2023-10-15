@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.CommandLineUtils;
+﻿using Elem;
+using Microsoft.Extensions.CommandLineUtils;
 using System;
 using System.Configuration;
 using System.Data.Common;
@@ -60,6 +61,17 @@ namespace dbci
                 });
             });
 
+            app.Command("start-sqlldr-driver", (cmd) =>
+            {
+                cmd.Description = "Start SQL*Loader Driver";
+
+                cmd.OnExecute(() =>
+                {
+                    WebContext ctx = new WebContext("./context.xml");
+                    ((Server)ctx.GetBean(typeof(Server))).Start(/* PORT */8080);
+                    return 0;
+                });
+            });
 
             app.Execute(args);
         }
