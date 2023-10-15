@@ -46,7 +46,7 @@ namespace dbci
 
         public Compiler GetCompiler(string name) {
             var providerName = GetDataSourceSetting(name).ProviderName;
-            if(_compiler.ContainsKey(providerName))
+            if(!_compiler.ContainsKey(providerName))
             {
                 throw new BusinessLogicException($"Compiler for provider '{providerName}' does not registered, the provider is currently not supported.");
             }
