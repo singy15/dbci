@@ -42,7 +42,7 @@ namespace dbci.Util
             }
         }
 
-        public void CreateLoadingPackage(string csvFilePath, string tableName, string connectionString, bool useAbsolutePath = false, int skipRows = 1, bool useDirect = true, int commitPoint = 1000)
+        public void CreateLoadingPackage(string csvFilePath, string tableName, string connectionString, bool useAbsolutePath = false, int skipRows = 1, bool useDirect = true, int commitPoint = 10000)
         {
             using (var loader = new CsvLoader(csvFilePath))
             {
