@@ -17,13 +17,15 @@ namespace dbci
 {
     public class ProcData
     {
-        public int Export(string database, string path, string sql, IDbConnection conn)
+        public int Export(string database, string path, string sql, IDbConnection conn, string encoding = "UTF-8")
         {
             var dbutil = new DbUtil(conn);
 
             using (var tx = conn.BeginTransaction())
             {
-                using (var textWriter = File.CreateText(path))
+
+                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                using (var textWriter = new StreamWriter(path, false, Encoding.GetEncoding(encoding)))
                 using (var csv = new CsvWriter(textWriter, CultureInfo.InvariantCulture))
                 {
                     using (var reader = dbutil.OpenReader(tx, sql))
@@ -77,7 +79,7 @@ namespace dbci
                 {
                     cmd.Connection = conn;
                     cmd.Transaction = tx;
-                    var sql = (initScript != "")? initScript : sqlgen.DeleteAll(database, table);
+                    var sql = (initScript != "") ? initScript : sqlgen.DeleteAll(database, table);
                     cmd.CommandText = sql;
                     cmd.ExecuteNonQuery();
                     tx.Commit();
@@ -160,6 +162,12 @@ namespace dbci
             }
 
             return 0;
+        }
+
+        public void BulkExport(string database, string dirPath, IDbConnection conn, List<string> tables, string encoding = "UTF-8") {
+            foreach (var tbl in tables) {
+                Export(database, Path.Combine(Path.GetDirectoryName(Path.GetFullPath(dirPath)), tbl + ".csv"), $"select * from {tbl}", conn, encoding);
+            }
         }
 
     }

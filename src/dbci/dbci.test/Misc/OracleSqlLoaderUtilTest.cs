@@ -40,7 +40,7 @@ namespace dbci.test
             ldrutil.CreateLoadingPackage(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, "TestResource", "ITEM.csv"),
                 "ITEM",
-                ldrutil.BuildConnectionString("test1","test1pwd","localhost",1521,"DB1"));
+                ldrutil.BuildConnectionString("test1", "test1pwd", "localhost", 1521, "DB1"));
         }
 
         [Test]
@@ -50,9 +50,20 @@ namespace dbci.test
             ldrutil.CreateLoadingPackage(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, "TestResource", "ITEM.csv"),
                 "ITEM",
-                ldrutil.BuildConnectionString("test1","test1pwd","localhost",1521,"DB1"),
+                ldrutil.BuildConnectionString("test1", "test1pwd", "localhost", 1521, "DB1"),
                 true);
         }
 
+        [Test]
+        public void Test__CreateBulkLoadingPackage()
+        {
+            var ldrutil = new OracleSqlLoaderUtil();
+            ldrutil.BulkCreateLoadingPackage(
+                new List<string>() {
+                    Path.Combine(TestContext.CurrentContext.TestDirectory, "TestResource", "ITEM.csv"),
+                    Path.Combine(TestContext.CurrentContext.TestDirectory, "TestResource", "SALE.csv")
+                },
+                ldrutil.BuildConnectionString("test1", "test1pwd", "localhost", 1521, "DB1"));
+        }
     }
 }

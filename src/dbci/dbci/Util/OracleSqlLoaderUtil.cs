@@ -65,5 +65,35 @@ namespace dbci.Util
                 CreateRunnerWindowsBatchFile(batchFilePathAbs, connectionString, controlFilePathAbs, logFilePathAbs, useDirect);
             }
         }
+
+        public void BulkCreateLoadingPackage(List<string> csvFilePaths, string connectionString, bool useAbsolutePath = false, int skipRows = 1, bool useDirect = true, int commitPoint = 10000)
+        {
+            var parentDirectory = Path.GetDirectoryName(csvFilePaths[0]);
+            var batchFilePathAbs = Path.Combine(parentDirectory, "load-all.bat");
+
+            foreach (var path in csvFilePaths)
+            {
+                CreateLoadingPackage(path, Path.GetFileNameWithoutExtension(path), connectionString, useAbsolutePath, skipRows, useDirect, commitPoint);
+            }
+
+            CreateBulkRunnerWindowsBatchFile(batchFilePathAbs, connectionString, csvFilePaths, useDirect);
+        }
+
+        public void CreateBulkRunnerWindowsBatchFile(string destPath, string connectionString, List<string> csvFilePaths, bool useDirect)
+        {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            using (var writer = new StreamWriter(destPath, false, Encoding.GetEncoding("Shift_JIS")))
+            {
+                foreach (var path in csvFilePaths)
+                {
+                    var parentDirectory = Path.GetDirectoryName(path);
+                    var basename = Path.GetFileNameWithoutExtension(path);
+                    var controlFilePath = Path.Combine(parentDirectory, basename + ".ctl");
+                    var logFilePath = Path.Combine(parentDirectory, basename + ".log");
+                    writer.WriteLine($"sqlldr userid={connectionString} control={Path.GetFileName(controlFilePath)} log={Path.GetFileName(logFilePath)} direct={useDirect}");
+                }
+            }
+        }
+
     }
 }
