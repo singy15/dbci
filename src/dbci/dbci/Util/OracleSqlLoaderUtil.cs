@@ -21,6 +21,7 @@ namespace dbci.Util
                 writer.WriteLine($"TRUNCATE");
                 writer.WriteLine($"INTO TABLE {tableName}");
                 writer.WriteLine($"FIELDS TERMINATED BY \",\"");
+                writer.WriteLine($"OPTIONALLY ENCLOSED BY '\"'");
                 writer.WriteLine($"(");
                 writer.WriteLine($"{String.Join(",", columns)}");
                 writer.WriteLine($")");
