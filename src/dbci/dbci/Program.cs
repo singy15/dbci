@@ -22,7 +22,7 @@ namespace dbci
             app.HelpOption(template: "-?|-h|--help");
             app.ExtendedHelpText = "";
 
-            app.Command("export", (cmd) =>
+            app.Command("exp", (cmd) =>
             {
                 cmd.Description = "Export table data as CSV file.";
                 cmd.HelpOption(template: "-?|-h|--help");
@@ -68,7 +68,7 @@ namespace dbci
             });
 
 
-            app.Command("bulk-export", (cmd) =>
+            app.Command("bulkexp", (cmd) =>
             {
                 cmd.Description = "Export multiple table data as CSV file.";
                 cmd.HelpOption(template: "-?|-h|--help");
@@ -136,7 +136,7 @@ namespace dbci
                 });
             });
 
-            app.Command("import", (cmd) =>
+            app.Command("imp", (cmd) =>
             {
                 cmd.Description = "Import table data from CSV file.";
                 cmd.HelpOption(template: "-?|-h|--help");
@@ -169,7 +169,7 @@ namespace dbci
             });
 
 
-            app.Command("gen-ctl", (cmd) =>
+            app.Command("genctl", (cmd) =>
             {
                 cmd.Description = "Generate SQL*Loader control file.";
                 cmd.HelpOption(template: "-?|-h|--help");
@@ -232,7 +232,7 @@ namespace dbci
             });
 
 
-            app.Command("gen-runner", (cmd) =>
+            app.Command("genrun", (cmd) =>
             {
                 cmd.Description = "Generate SQL*Loader runner batch script.";
                 cmd.HelpOption(template: "-?|-h|--help");
@@ -297,7 +297,7 @@ namespace dbci
                 });
             });
 
-            app.Command("start-sqlldr-server", (cmd) =>
+            app.Command("runsvr", (cmd) =>
             {
                 cmd.Description = "Start SQL*Loader driver server.";
                 cmd.HelpOption(template: "-?|-h|--help");
