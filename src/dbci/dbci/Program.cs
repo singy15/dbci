@@ -2,6 +2,7 @@
 using Elem;
 using Microsoft.Extensions.CommandLineUtils;
 using System;
+using System.Collections.Generic;
 using System.Configuration;
 using System.Data.Common;
 using System.Data.SQLite;
@@ -25,20 +26,33 @@ namespace dbci
             {
                 cmd.Description = "Export table data as CSV file.";
                 cmd.HelpOption(template: "-?|-h|--help");
-                var argDatabase = cmd.Argument("[target]", "Target database name to connect.");
-                var argPath = cmd.Argument("[path]", "CSV file path to export.");
-                var argQuery = cmd.Argument("[query]", "Query to get output data.");
+                var argTarget = cmd.Argument("[target]", "Target database name to connect.");
+                var optTable = cmd.Option("-t|--table", "Table to export.", CommandOptionType.SingleValue);
+                var optQuery = cmd.Option("-q|--query", "Query to export.", CommandOptionType.SingleValue);
+                var optOut = cmd.Option("-o|--out", "Path to output.", CommandOptionType.SingleValue);
                 var optEncoding = cmd.Option("-e|--encoding", "Encoding {Shift_JIS|UTF-8}", CommandOptionType.SingleValue);
 
                 cmd.OnExecute(() =>
                 {
                     try
                     {
-                        using (var conn = DataSourceUtil.Instance.CreateConnection(argDatabase.Value))
+                        if (!(optTable.HasValue() || optQuery.HasValue()))
                         {
+                            throw new BusinessLogicException("Either Table(-t) or Query(-q) must be set.");
+                        }
+
+                        using (var conn = DataSourceUtil.Instance.CreateConnection(argTarget.Value))
+                        {
+                            var filename = (optTable.HasValue()) ? $"{optTable.Value()}.csv" : "out.csv";
                             conn.Open();
                             var proc = new ProcData();
-                            proc.Export(argDatabase.Value, argPath.Value, argQuery.Value, conn, ((optEncoding.HasValue())? optEncoding.Value() : "UTF-8"));
+                            proc.Export(
+                                argTarget.Value,
+                                (optOut.HasValue()) ? Path.GetFullPath(optOut.Value()) : Path.Combine(Directory.GetCurrentDirectory(), filename),
+                                // TODO: Risk of SQL injection
+                                (optQuery.HasValue()) ? optQuery.Value() : $"select * from {optTable.Value()}",
+                                conn,
+                                ((optEncoding.HasValue()) ? optEncoding.Value() : "UTF-8"));
                             conn.Close();
                         }
                         return 0;
@@ -53,24 +67,61 @@ namespace dbci
                 });
             });
 
+
             app.Command("bulk-export", (cmd) =>
             {
                 cmd.Description = "Export multiple table data as CSV file.";
                 cmd.HelpOption(template: "-?|-h|--help");
-                var argDatabase = cmd.Argument("[target]", "Target database name to connect.");
-                var argPath = cmd.Argument("[path]", "Output directory path.");
-                var argTables = cmd.Argument("[tables]", "Tables to output. Ex. TBLA TBLB", true);
+                var argTarget = cmd.Argument("[target]", "Target database name to connect.");
+                var optTable = cmd.Option("-t|--table", "Tables to export.", CommandOptionType.MultipleValue);
+                var optQuery = cmd.Option("-q|--query", "Queries to export.", CommandOptionType.MultipleValue);
+                var optOut = cmd.Option("-o|--out", "Path to output.", CommandOptionType.SingleValue);
+                var optName = cmd.Option("-n|--name", "Names for query to export.", CommandOptionType.MultipleValue);
                 var optEncoding = cmd.Option("-e|--encoding", "Encoding {Shift_JIS|UTF-8}", CommandOptionType.SingleValue);
 
                 cmd.OnExecute(() =>
                 {
                     try
                     {
-                        using (var conn = DataSourceUtil.Instance.CreateConnection(argDatabase.Value))
+                        if (!(optTable.HasValue() || optQuery.HasValue()))
+                        {
+                            throw new BusinessLogicException("Either Table(-t) or Query(-q) must be set.");
+                        }
+
+                        using (var conn = DataSourceUtil.Instance.CreateConnection(argTarget.Value))
                         {
                             conn.Open();
                             var proc = new ProcData();
-                            proc.BulkExport(argDatabase.Value, Path.GetFullPath(argPath.Value), conn, argTables.Values, ((optEncoding.HasValue()) ? optEncoding.Value() : "UTF-8"));
+
+                            if (optTable.HasValue())
+                            {
+                                optTable.Values.ForEach(t =>
+                                {
+                                    proc.Export(
+                                        argTarget.Value,
+                                        (optOut.HasValue()) ? Path.Combine(Path.GetFullPath(optOut.Value()), $"{t}.csv") : Path.Combine(Directory.GetCurrentDirectory(), $"{t}.csv"),
+                                        // TODO: Risk of SQL injection
+                                        $"select * from {t}",
+                                        conn,
+                                        ((optEncoding.HasValue()) ? optEncoding.Value() : "UTF-8"));
+                                });
+                            }
+
+                            if (optQuery.HasValue())
+                            {
+                                var i = 1;
+                                optQuery.Values.ForEach((q) =>
+                                {
+                                    proc.Export(
+                                        argTarget.Value,
+                                        (optOut.HasValue()) ? Path.Combine(Path.GetFullPath(optOut.Value()), $"out{i}.csv") : Path.Combine(Directory.GetCurrentDirectory(), $"out{i}.csv"),
+                                        q,
+                                        conn,
+                                        ((optEncoding.HasValue()) ? optEncoding.Value() : "UTF-8"));
+                                    i++;
+                                });
+                            }
+
                             conn.Close();
                         }
                         return 0;
@@ -117,13 +168,13 @@ namespace dbci
                 });
             });
 
-            app.Command("gen-sqlldr-ctl", (cmd) =>
+
+            app.Command("gen-ctl", (cmd) =>
             {
-                cmd.Description = "Generate SQL*Loader control file and runner batch script.";
+                cmd.Description = "Generate SQL*Loader control file.";
                 cmd.HelpOption(template: "-?|-h|--help");
-                var argCsvPath = cmd.Argument("[path]", "Path to CSV file.");
-                var argTable = cmd.Argument("[table name]", "Destination table name.");
-                var argConnectionString = cmd.Argument("[connection string]", "Connection string. ex. {username}/{password}@{host}:{port}/{database}");
+                var argCsvPath = cmd.Argument("[path]", "Path to CSV file.", true);
+                var optExclude = cmd.Option("-x|--exclude", "Exclude path", CommandOptionType.MultipleValue);
                 var optAbsolutePath = cmd.Option("-a|--abs", "Use absolute path", CommandOptionType.NoValue);
 
                 cmd.OnExecute(() =>
@@ -131,11 +182,43 @@ namespace dbci
                     try
                     {
                         var ldrutil = new OracleSqlLoaderUtil();
-                        ldrutil.CreateLoadingPackage(
-                            Path.GetFullPath(argCsvPath.Value),
-                            argTable.Value,
-                            argConnectionString.Value,
-                            optAbsolutePath.HasValue());
+
+                        HashSet<string> excludes = new HashSet<string>();
+                        if (optExclude.HasValue())
+                        {
+                            foreach (var path in optExclude.Values)
+                            {
+                                var fullpath = Path.GetFullPath(path);
+                                var parent = Path.GetDirectoryName(fullpath);
+                                var filename = Path.GetFileName(fullpath);
+                                var files = Directory.GetFiles(parent, filename);
+                                foreach (var file in files)
+                                {
+                                    excludes.Add(file);
+                                }
+                            }
+                        }
+
+                        foreach (var path in argCsvPath.Values)
+                        {
+                            var fullpath = Path.GetFullPath(path);
+                            var parent = Path.GetDirectoryName(fullpath);
+                            var filename = Path.GetFileName(fullpath);
+                            var files = Directory.GetFiles(parent, filename);
+
+                            foreach (var file in files)
+                            {
+                                if (excludes.Contains(file)) { continue; }
+
+                                ldrutil.CreateLoadingPackage(
+                                    Path.GetFullPath(file),
+                                    Path.GetFileNameWithoutExtension(file),
+                                    "",
+                                    optAbsolutePath.HasValue(),
+                                    false);
+                            }
+                        }
+
                         return 0;
                     }
                     catch (BusinessLogicException ex)
@@ -148,12 +231,15 @@ namespace dbci
                 });
             });
 
-            app.Command("bulk-gen-sqlldr-ctl", (cmd) =>
+
+            app.Command("gen-runner", (cmd) =>
             {
-                cmd.Description = "Generate multiple SQL*Loader control files and runner batch scripts.";
+                cmd.Description = "Generate SQL*Loader runner batch script.";
                 cmd.HelpOption(template: "-?|-h|--help");
                 var argConnectionString = cmd.Argument("[connection string]", "Connection string. ex. {username}/{password}@{host}:{port}/{database}");
-                var argCsvPath = cmd.Argument("[paths]", "Path to CSV files.", true);
+                var argCtlPath = cmd.Argument("[path]", "Path to control file.", true);
+                var optExclude = cmd.Option("-x|--exclude", "Exclude path", CommandOptionType.MultipleValue);
+                var optOut = cmd.Option("-o|--out", "Output path", CommandOptionType.SingleValue);
                 var optAbsolutePath = cmd.Option("-a|--abs", "Use absolute path", CommandOptionType.NoValue);
 
                 cmd.OnExecute(() =>
@@ -161,10 +247,44 @@ namespace dbci
                     try
                     {
                         var ldrutil = new OracleSqlLoaderUtil();
-                        ldrutil.BulkCreateLoadingPackage(
-                            argCsvPath.Values.Select(p => Path.GetFullPath(p)).ToList(),
+
+                        HashSet<string> excludes = new HashSet<string>();
+                        if (optExclude.HasValue())
+                        {
+                            foreach (var path in optExclude.Values)
+                            {
+                                var fullpath = Path.GetFullPath(path);
+                                var parent = Path.GetDirectoryName(fullpath);
+                                var filename = Path.GetFileName(fullpath);
+                                var files = Directory.GetFiles(parent, filename);
+                                foreach (var file in files)
+                                {
+                                    excludes.Add(file);
+                                }
+                            }
+                        }
+
+                        var ctls = new List<string>();
+                        foreach (var path in argCtlPath.Values)
+                        {
+                            var fullpath = Path.GetFullPath(path);
+                            var parent = Path.GetDirectoryName(fullpath);
+                            var filename = Path.GetFileName(fullpath);
+                            var files = Directory.GetFiles(parent, filename);
+
+                            foreach (var file in files)
+                            {
+                                if (excludes.Contains(file)) { continue; }
+                                ctls.Add(file);
+                            }
+                        }
+
+                        ldrutil.CreateMultipleRunnerWindowsBatchFile(
+                            (optOut.HasValue()) ? Path.GetFullPath(optOut.Value()) : Path.Combine(Directory.GetCurrentDirectory(), $"runner.bat"),
                             argConnectionString.Value,
-                            optAbsolutePath.HasValue());
+                            ctls,
+                            true);
+
                         return 0;
                     }
                     catch (BusinessLogicException ex)
