@@ -14,7 +14,9 @@ using System.Runtime.Serialization.Json;
 
 namespace OracleSqlLoaderDriverApp
 {
+    using dbci.Util;
     using Elem;
+    using System.Diagnostics;
 
     //class Program {
     //  public static void Main(string[] args) {
@@ -35,10 +37,89 @@ namespace OracleSqlLoaderDriverApp
             ServerUtil.WriteResponseText(context, "It works!");
         }
 
-        [Routing("/sqlldr/upload", RouteMethod.POST)]
-        public void Upload(HttpListenerContext context)
+        public class Base64EncodedUploadFile
         {
-            ServerUtil.WriteResponseText(context, "upload");
+            public string Name { get; set; }
+
+            public string Content { get; set; }
+            public string Connstr { get; set; }
+        }
+
+        public class ProcResult
+        {
+            public bool Success { get; set; }
+
+            public string Message { get; set; }
+
+            public int ErrorCode { get; set; }
+
+            public object AdditionalInfo { get; set; }
+        }
+
+        public class SqlLoaderResult
+        {
+            public string Log { get; set; }
+
+            public string BadRecords { get; set; }
+        }
+
+        [Routing("/sqlldr/upload", RouteMethod.POST)]
+        public void Upload(HttpListenerContext context, [RequestJson] Base64EncodedUploadFile file)
+        {
+            var base64 = Regex.Replace(file.Content, "^.*,", "");
+            var tmpPath = Path.GetTempPath();
+            var savePath = Path.Combine(tmpPath, file.Name);
+
+            Base64Util.SaveWithDecode(base64, savePath);
+
+            var ldrutil = new OracleSqlLoaderUtil();
+            var controlFilePath = ldrutil.CreateLoadingPackage(
+                Path.GetFullPath(savePath),
+                Path.GetFileNameWithoutExtension(savePath),
+                "",
+                false,
+                false);
+            var parent = Path.GetDirectoryName(controlFilePath);
+            var basename = Path.GetFileNameWithoutExtension(controlFilePath);
+            var logFilePath = Path.Combine(parent, basename + ".log");
+            var badFilePath = Path.Combine(parent, basename + ".bad");
+
+            var connStr = file.Connstr;
+            ProcessStartInfo psi = new ProcessStartInfo();
+            psi.WorkingDirectory = tmpPath;
+            psi.FileName = @"sqlldr";
+            psi.Arguments = $"{connStr} control={Path.GetFileName(controlFilePath)} log={Path.GetFileName(logFilePath)} direct=true";
+            psi.RedirectStandardOutput = true;
+            var p = Process.Start(psi);
+            p.WaitForExit();
+
+            string log = "";
+            if (File.Exists(logFilePath))
+            {
+                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                using (var reader = new StreamReader(logFilePath, Encoding.GetEncoding("Shift_JIS")))
+                {
+                    log = reader.ReadToEnd();
+                }
+            }
+
+            string bad = "";
+            if (File.Exists(badFilePath))
+            {
+                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                using (var reader = new StreamReader(badFilePath, Encoding.GetEncoding("Shift_JIS")))
+                {
+                    bad = reader.ReadToEnd();
+                }
+            }
+
+            if (File.Exists(savePath)) File.Delete(savePath);
+            if (File.Exists(controlFilePath)) File.Delete(controlFilePath);
+            if (File.Exists(logFilePath)) File.Delete(logFilePath);
+            if (File.Exists(badFilePath)) File.Delete(badFilePath);
+
+            ServerUtil.WriteResponseText(context, ServerUtil.ToJson(
+                new ProcResult() { Success = true, Message = "", ErrorCode = 0, AdditionalInfo = new SqlLoaderResult() { Log = log, BadRecords = bad } }));
         }
     }
 

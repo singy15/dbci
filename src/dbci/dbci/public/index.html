@@ -1,9 +1,196 @@
 <!DOCTYPE html>
 <html>
+<head>
+    <style>
+        * {
+            margin: 0px;
+            padding: 0px;
+        }
+
+        html {
+            font-size: 12px;
+            font-family: 'system';
+        }
+
+        body {
+            background-color: #EEE;
+        }
+
+        #content {
+            display: flex;
+            position: absolute;
+            flex-direction: column;
+            width: 100vw;
+            height: 100vh;
+        }
+
+            #content > p:last-of-type {
+                flex: 1;
+                min-height: 100px;
+            }
+
+        .rest {
+            height: 100%;
+            max-width: 100%;
+            overflow: scroll scroll;
+        }
+
+        .spanbutton {
+            display: inline-block;
+            color: #FFF;
+            background-color: #555;
+            padding: 3px 8px 3px 8px;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .spanlabel {
+            display: inline-block;
+            color: #333;
+            /*background-color: #555;*/
+            border: solid 1px #888;
+            padding: 3px 8px 3px 8px;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .item {
+            padding: 5px;
+        }
+
+        .pattern12 {
+            background-image: repeating-linear-gradient(36deg, rgba(255,255,255, 0.25), rgba(255,255,255, 0.25) 1px, transparent 0px, transparent 2px);
+            background-size: 12px;
+        }
+
+        .pattern2 {
+            background-image: repeating-linear-gradient(-45deg, rgba(255,255,255, 0.25), rgba(255,255,255, 0.25) 1px, transparent 1px, transparent 6px);
+            background-size: 4px 4px;
+        }
+    </style>
+</head>
 <body>
-    <form method="post" action="/sqlldr/upload" enctype="multipart/form-data">
-        <input type="file" />
-        <input type="submit" />
-    </form>
+    <div id="content">
+        <div class="pattern2" style="height: 80px; padding-left:20px; line-height:80px; background-color:#496259;">
+            <span style="color:#fff; font-size:1.5rem; vertical-align:middle;">dbci</span>
+        </div>
+        <div style="padding:10px; background-color:#DDD;">
+            <div class="item">
+                <span class="spanlabel">FILE</span>
+                <span id="fileinfo"></span><span>&nbsp;</span><span class="spanbutton" id="uploadbtn">SELECT</span> <input style="visibility:hidden;" type="file" id="file" />
+            </div>
+
+            <div class="item">
+                <span class="spanlabel">CONNECTION</span>
+                <input id="connStr" style="border:solid 1px #888; width:400px; outline:none;" />
+            </div>
+
+            <div class="item">
+                <span class="spanbutton" id="submit" style="background-color:#9d5d5d;" onclick="uploadAndLoad()">UPLOAD</span>
+            </div>
+
+        </div>
+        <div class="rest" style="padding:10px;">
+            <span class="spanbutton" id="clearLog" style="position:absolute; right:10px;">CLEAR LOG</span>
+            <br />
+            <span id="out"></span>
+        </div>
+    </div>
+    <script>
+        var out = document.querySelector("#out");
+
+        function write(text) {
+            out.innerText = out.innerText + text;
+        }
+
+        function writeLn(text) {
+            out.innerText = out.innerText + text + "\n";
+        }
+
+        document.querySelector("#clearLog").addEventListener("click", (e) => {
+            document.querySelector("#out").innerText = "";
+        });
+
+        document.querySelector("#uploadbtn").addEventListener("click", (e) => {
+            fileObj = null;
+            document.querySelector("#fileinfo").innerText = "";
+            document.querySelector("#file").click();
+        });
+
+        var fileObj = null;
+
+        function uploadAndLoad() {
+            if (!confirm("Uploading file, continue?")) {
+                return;
+            }
+
+            if (null == fileObj) {
+                alert("Please select upload file.");
+                return;
+            }
+
+            writeLn(">>> LOADING...");
+            const method = "POST";
+            const obj = {
+                name: fileObj.name,
+                content: fileObj.content,
+                connstr: document.querySelector("#connStr").value
+            };
+            const body = JSON.stringify(obj);
+            const headers = {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            };
+            fetch("/sqlldr/upload", { method, headers, body })
+                .then((res) => res.json())
+                .then((json) => {
+                    console.log(json);
+                    fileObj = null;
+                    document.querySelector("#fileinfo").innerText = "";
+                    writeLn(json.additionalInfo.log);
+                    writeLn(json.additionalInfo.badRecords);
+                    writeLn(">>> DONE.");
+                })
+                .catch(console.error);
+        }
+
+        document.querySelector("#file").addEventListener("change", (e) => {
+            var file = document.querySelector("#file").files[0];
+            var filename = file.name;
+            var reader = new FileReader();
+            reader.addEventListener("load", () => {
+                //    const obj = {
+                //        name: filename,
+                //        content: reader.result
+                //    };
+                //    const method = "POST";
+                //    const body = JSON.stringify(obj);
+                //    const headers = {
+                //        'Accept': 'application/json',
+                //        'Content-Type': 'application/json'
+                //    };
+                //    fetch("/sqlldr/upload", { method, headers, body })
+                //        .then((res) => res.json())
+                //        .then((json) => {
+                //            console.log(json);
+                //            writeLn(json.additionalInfo.log);
+                //            writeLn(json.additionalInfo.badRecords);
+                //            writeLn(">>> DONE.");
+                //        })
+                //        .catch(console.error);
+
+                fileObj = {
+                    name: filename,
+                    content: reader.result
+                };
+                document.querySelector("#fileinfo").innerText = filename;
+
+            }, false);
+
+            if (file) {
+                reader.readAsDataURL(file);
+            }
+        });
+    </script>
 </body>
 </html>

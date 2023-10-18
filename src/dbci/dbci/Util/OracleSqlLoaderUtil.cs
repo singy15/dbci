@@ -42,7 +42,7 @@ namespace dbci.Util
             }
         }
 
-        public void CreateLoadingPackage(string csvFilePath, string tableName, string connectionString, bool useAbsolutePath = false, bool createRunner = true, int skipRows = 1, bool useDirect = true, int commitPoint = 10000)
+        public string CreateLoadingPackage(string csvFilePath, string tableName, string connectionString, bool useAbsolutePath = false, bool createRunner = true, int skipRows = 1, bool useDirect = true, int commitPoint = 10000)
         {
             using (var loader = new CsvLoader(csvFilePath))
             {
@@ -61,6 +61,8 @@ namespace dbci.Util
                 {
                     CreateRunnerWindowsBatchFile(batchFilePathAbs, connectionString, controlFilePathAbs, logFilePathAbs, useDirect);
                 }
+
+                return controlFilePathAbs;
             }
         }
 
