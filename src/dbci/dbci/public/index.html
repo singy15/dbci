@@ -58,14 +58,64 @@
             padding: 5px;
         }
 
-        .pattern12 {
-            background-image: repeating-linear-gradient(36deg, rgba(255,255,255, 0.25), rgba(255,255,255, 0.25) 1px, transparent 0px, transparent 2px);
-            background-size: 12px;
+        .pattern1 {
+            background-image: repeating-linear-gradient(-45deg, rgba(255,255,255, 0.25), rgba(255,255,255, 0.25) 1px, transparent 1px, transparent 6px);
+            background-size: 8px 8px;
         }
 
         .pattern2 {
             background-image: repeating-linear-gradient(-45deg, rgba(255,255,255, 0.25), rgba(255,255,255, 0.25) 1px, transparent 1px, transparent 6px);
             background-size: 4px 4px;
+        }
+
+        .pattern3 {
+            background-image: repeating-linear-gradient(-26deg, rgba(255,255,255, 0.25), rgba(255,255,255, 0.25) 2px, transparent 3px, transparent 7px);
+            background-size: 6px 8px;
+        }
+
+        .pattern4 {
+            background-image: repeating-linear-gradient(0deg, rgba(255,255,255, 0.25), rgba(255,255,255, 0.25) 1px, transparent 1px, transparent 7px);
+            background-size: 2px;
+        }
+
+        .pattern5 {
+            background-image: repeating-linear-gradient(90deg, rgba(255,255,255, 0.25), rgba(255,255,255, 0.25) 1px, transparent 1px, transparent 7px);
+            background-size: 16px;
+        }
+
+        .pattern6 {
+            background-image: repeating-linear-gradient(11deg, rgba(255,255,255, 0.25), rgba(255,255,255, 0.25) 1px, transparent 0px, transparent 4px);
+            background-size: 8px;
+        }
+
+        .pattern7 {
+            background-image: repeating-linear-gradient(-214deg, rgba(255,255,255, 0.25), rgba(255,255,255, 0.25) 1px, transparent 0px, transparent 13px);
+            background-size: 9px;
+        }
+
+        .pattern8 {
+            background-image: repeating-linear-gradient(-319deg, rgba(255,255,255, 0.25), rgba(255,255,255, 0.25) 1px, transparent 3px, transparent 15px);
+            background-size: 4px;
+        }
+
+        .pattern9 {
+            background-image: repeating-linear-gradient(315deg, rgba(255,255,255, 0.25), rgba(255,255,255, 0.25) 3px, transparent -19px, transparent 5px);
+            background-size: 6px;
+        }
+
+        .pattern10 {
+            background-image: repeating-linear-gradient(233deg, rgba(255,255,255, 0.25), rgba(255,255,255, 0.25) 1px, transparent -19px, transparent 2px);
+            background-size: 10px;
+        }
+
+        .pattern11 {
+            background-image: repeating-linear-gradient(223deg, rgba(255,255,255, 0.25), rgba(255,255,255, 0.25) 1px, transparent 0px, transparent 2px);
+            background-size: 20px;
+        }
+
+        .pattern12 {
+            background-image: repeating-linear-gradient(36deg, rgba(255,255,255, 0.25), rgba(255,255,255, 0.25) 1px, transparent 0px, transparent 2px);
+            background-size: 12px;
         }
     </style>
 </head>
@@ -120,12 +170,17 @@
         var fileObj = null;
 
         function uploadAndLoad() {
-            if (!confirm("Uploading file, continue?")) {
+            if (null == fileObj) {
+                alert("Please select upload file.");
                 return;
             }
 
-            if (null == fileObj) {
-                alert("Please select upload file.");
+            if ("" == document.querySelector("#connStr").value) {
+                alert("Please input connection string.");
+                return;
+            }
+
+            if (!confirm("Uploading file, continue?")) {
                 return;
             }
 
