@@ -17,26 +17,25 @@ namespace dbci
 
         public CsvLoader(string path /*, string encode = "UTF-8"*/)
         {
+            Table = new DataTable();
             _streamReader = new StreamReader(path);
             _csvReader = new CsvReader(_streamReader, System.Globalization.CultureInfo.InvariantCulture);
-            Table = new DataTable();
+
+            _csvReader.Read();
+            _csvReader.ReadHeader();
+            foreach (var column in _csvReader.HeaderRecord)
+            {
+                Table.Columns.Add(column);
+            }
         }
 
         public bool GetRecords(int rows = 0)
         {
             int cnt = 0;
             Table.Clear();
-            while (((rows > 0)? cnt < rows : true) && _csvReader.Read())
+            while (((rows > 0) ? cnt < rows : true) && _csvReader.Read())
             {
                 var record = _csvReader.GetRecord<dynamic>() as IDictionary<string, object>;
-
-                if (Table.Columns.Count == 0)
-                {
-                    foreach (var property in record)
-                    {
-                        Table.Columns.Add(property.Key);
-                    }
-                }
 
                 var dataRow = Table.NewRow();
                 foreach (var property in record)

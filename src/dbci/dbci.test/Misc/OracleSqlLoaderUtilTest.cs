@@ -44,6 +44,16 @@ namespace dbci.test
         }
 
         [Test]
+        public void Test__CreateLoadingPackage__empty_csv()
+        {
+            var ldrutil = new OracleSqlLoaderUtil();
+            ldrutil.CreateLoadingPackage(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestResource", "ITEM_empty.csv"),
+                "ITEM",
+                ldrutil.BuildConnectionString("test1", "test1pwd", "localhost", 1521, "DB1"));
+        }
+
+        [Test]
         public void Test__CreateLoadingPackage__AbsolutePath()
         {
             var ldrutil = new OracleSqlLoaderUtil();

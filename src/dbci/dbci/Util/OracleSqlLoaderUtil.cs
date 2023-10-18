@@ -46,12 +46,6 @@ namespace dbci.Util
         {
             using (var loader = new CsvLoader(csvFilePath))
             {
-                var loadResult = loader.GetRecords(1);
-                if (!loadResult)
-                {
-                    throw new InvalidOperationException("Invalid csv file.");
-                }
-
                 var columns = loader.Table.Columns.Cast<DataColumn>().Select(c => c.ColumnName).ToList();
                 var parentDirectory = Path.GetDirectoryName(csvFilePath);
                 var basename = Path.GetFileNameWithoutExtension(csvFilePath);
