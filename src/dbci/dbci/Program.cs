@@ -8,6 +8,7 @@ using System.Data.Common;
 using System.Data.SQLite;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 
 namespace dbci
 {
@@ -306,7 +307,7 @@ namespace dbci
                 {
                     try
                     {
-                        WebContext ctx = new WebContext("./context.xml");
+                        WebContext ctx = new WebContext(Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "context.xml"));
                         ((Server)ctx.GetBean(typeof(Server))).Start(/* PORT */8080);
                         return 0;
                     }

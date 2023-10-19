@@ -306,7 +306,7 @@ namespace Elem
     {
         private const string ROOT_URL_BASE =
           "http://localhost:{0}/"; // "http://*:{0}/";
-        private const string STATIC_ROOT = "./public/";
+        private string staticRoot;
         private string rootUrl;
 
         [AutowiredGroup("Elem.Controllers")]
@@ -316,6 +316,8 @@ namespace Elem
 
         public Server()
         {
+            staticRoot = Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "public\\");
+
             this.JsonSerializerOptions = new JsonSerializerOptions()
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -556,7 +558,7 @@ namespace Elem
             else
             {
                 // Try fetch static resource
-                string path = STATIC_ROOT
+                string path = staticRoot
                   + url.Substring(rootUrl.Length, url.Length - rootUrl.Length);
                 if (File.Exists(path))
                 {
