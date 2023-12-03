@@ -68,6 +68,56 @@ namespace dbci
                 });
             });
 
+            app.Command("expi", (cmd) =>
+            {
+                cmd.Description = "Export table data as CSV file.";
+                cmd.HelpOption(template: "-?|-h|--help");
+                var argTarget = cmd.Argument("[target]", "Target database name to connect.");
+                var optEncoding = cmd.Option("-e|--encoding", "Encoding {Shift_JIS|UTF-8}", CommandOptionType.SingleValue);
+
+                cmd.OnExecute(() =>
+                {
+                    try
+                    {
+                        using (var conn = DataSourceUtil.Instance.CreateConnection(argTarget.Value))
+                        {
+                            conn.Open();
+                            var proc = new ProcData();
+                            var breakSignal = "@q";
+                            while (true)
+                            {
+                                var filename = Console.ReadLine();
+                                if (filename.Trim() == breakSignal)
+                                {
+                                    break;
+                                }
+                                var query = Console.ReadLine();
+                                if (query.Trim() == breakSignal)
+                                {
+                                    break;
+                                }
+
+                                proc.Export(
+                                    argTarget.Value,
+                                    Path.GetFullPath(filename),
+                                    // TODO: Risk of SQL injection
+                                    query,
+                                    conn,
+                                    ((optEncoding.HasValue()) ? optEncoding.Value() : "UTF-8"));
+                            }
+                            conn.Close();
+                        }
+                        return 0;
+                    }
+                    catch (BusinessLogicException ex)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine($"ERROR: {ex.Message}");
+                        Console.ResetColor();
+                        return 1;
+                    }
+                });
+            });
 
             app.Command("bulkexp", (cmd) =>
             {
