@@ -4,11 +4,14 @@ using Microsoft.Extensions.CommandLineUtils;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Data;
 using System.Data.Common;
 using System.Data.SQLite;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace dbci
 {
@@ -74,39 +77,133 @@ namespace dbci
                 cmd.HelpOption(template: "-?|-h|--help");
                 var argTarget = cmd.Argument("[target]", "Target database name to connect.");
                 var optEncoding = cmd.Option("-e|--encoding", "Encoding {Shift_JIS|UTF-8}", CommandOptionType.SingleValue);
+                var optParallel = cmd.Option("-p|--parallel", "Number of threads for parallel export.", CommandOptionType.SingleValue);
 
                 cmd.OnExecute(() =>
                 {
                     try
                     {
-                        using (var conn = DataSourceUtil.Instance.CreateConnection(argTarget.Value))
+                        var breakSignal = "@q";
+
+                        var origBackCol = Console.BackgroundColor;
+                        var origForeCol = Console.ForegroundColor;
+
+                        int threads = (optParallel.HasValue()) ? int.Parse(optParallel.Value()) : 1;
+                        int[] threadStatus = new int[threads];
+                        IDbConnection[] threadConnection = new IDbConnection[threads];
+                        for (int i = 0; i < threads; i++)
                         {
+                            threadStatus[i] = 0;
+                            var conn = DataSourceUtil.Instance.CreateConnection(argTarget.Value);
                             conn.Open();
-                            var proc = new ProcData();
-                            var breakSignal = "@q";
-                            while (true)
+                            threadConnection[i] = conn;
+                        }
+
+                        Console.WriteLine("*** dbci interactive export mode started.");
+                        Console.WriteLine("*** Enter @q to quit.");
+                        Console.WriteLine("");
+
+                        bool interrupt = false;
+                        int threadActive = 0;
+                        int sleepInterval = 100;
+                        while (true)
+                        {
+                            if (interrupt)
                             {
+                                if (threadActive > 0)
+                                {
+                                    Thread.Sleep(sleepInterval);
+                                    continue;
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            }
+
+                            for (int i = 0; i < threads; i++)
+                            {
+                                if (threadStatus[i] != 0) { continue; }
+
+                                Console.ForegroundColor = ConsoleColor.Cyan;
+                                Console.Write("t{0}> ", i + 1);
+                                Console.ForegroundColor = ConsoleColor.Yellow;
+                                Console.Write("(output) ");
+                                //Console.ForegroundColor = ConsoleColor.DarkGray;
+                                //Console.Write(" out: ");
+                                Console.BackgroundColor = origBackCol;
+                                Console.ForegroundColor = origForeCol;
                                 var filename = Console.ReadLine();
                                 if (filename.Trim() == breakSignal)
                                 {
-                                    break;
-                                }
-                                var query = Console.ReadLine();
-                                if (query.Trim() == breakSignal)
-                                {
+                                    interrupt = true;
+                                    if (threadActive > 0)
+                                    {
+                                        Console.WriteLine("Waiting for other threads...");
+                                    }
                                     break;
                                 }
 
-                                proc.Export(
-                                    argTarget.Value,
-                                    Path.GetFullPath(filename),
-                                    // TODO: Risk of SQL injection
-                                    query,
-                                    conn,
-                                    ((optEncoding.HasValue()) ? optEncoding.Value() : "UTF-8"));
+                                //Console.ForegroundColor = ConsoleColor.Blue;
+                                Console.ForegroundColor = ConsoleColor.Yellow;
+                                Console.Write("(query) ");
+                                //Console.ForegroundColor = ConsoleColor.DarkGray;
+                                //Console.Write(" sql: ");
+                                Console.BackgroundColor = origBackCol;
+                                Console.ForegroundColor = origForeCol;
+                                string query = "";
+                                bool result = ReadMultiLineQuery(out query, breakSignal);
+                                if (!result)
+                                {
+                                    interrupt = true;
+                                    if (threadActive > 0)
+                                    {
+                                        Console.WriteLine("Waiting for other threads...");
+                                    }
+                                    break;
+                                }
+
+                                int n = i;
+                                threadActive = threadActive + 1;
+                                threadStatus[n] = 1;
+                                var t = Task.Run(() =>
+                                {
+                                    try
+                                    {
+                                        var conn = threadConnection[n];
+                                        var proc = new ProcData();
+                                        proc.Export(
+                                            argTarget.Value,
+                                            Path.GetFullPath(filename),
+                                            // TODO: Risk of SQL injection
+                                            query,
+                                            conn,
+                                            ((optEncoding.HasValue()) ? optEncoding.Value() : "UTF-8"));
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.ForegroundColor = ConsoleColor.Red;
+                                        Console.WriteLine("");
+                                        Console.WriteLine(ex.Message);
+                                        Console.WriteLine("");
+                                        Console.ForegroundColor = origForeCol;
+                                    }
+                                    finally
+                                    {
+                                        threadStatus[n] = 0;
+                                        threadActive = threadActive - 1;
+                                    }
+                                });
                             }
-                            conn.Close();
+
+                            Thread.Sleep(sleepInterval);
                         }
+
+                        for (int i = 0; i < threads; i++)
+                        {
+                            threadConnection[i].Close();
+                        }
+
                         return 0;
                     }
                     catch (BusinessLogicException ex)
@@ -372,6 +469,30 @@ namespace dbci
             });
 
             app.Execute(args);
+        }
+
+        static bool ReadMultiLineQuery(out string query, string interruptSignal)
+        {
+            var text = "";
+            while (true)
+            {
+                var input = Console.ReadLine();
+                if (input.Trim() == interruptSignal)
+                {
+                    query = "";
+                    return false;
+                }
+                text = text + input + "\n";
+
+                if (text.Trim().EndsWith(";"))
+                {
+                    text = text.Substring(0, text.Length - 2);
+                    break;
+                }
+            }
+
+            query = text;
+            return true;
         }
     }
 }
