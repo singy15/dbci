@@ -126,11 +126,7 @@ namespace dbci
                                 if (threadStatus[i] != 0) { continue; }
 
                                 Console.ForegroundColor = ConsoleColor.Cyan;
-                                Console.Write("t{0}> ", i + 1);
-                                Console.ForegroundColor = ConsoleColor.Yellow;
-                                Console.Write("(output) ");
-                                //Console.ForegroundColor = ConsoleColor.DarkGray;
-                                //Console.Write(" out: ");
+                                Console.Write("{0}> ", i + 1);
                                 Console.BackgroundColor = origBackCol;
                                 Console.ForegroundColor = origForeCol;
                                 var filename = Console.ReadLine();
@@ -144,11 +140,8 @@ namespace dbci
                                     break;
                                 }
 
-                                //Console.ForegroundColor = ConsoleColor.Blue;
-                                Console.ForegroundColor = ConsoleColor.Yellow;
-                                Console.Write("(query) ");
-                                //Console.ForegroundColor = ConsoleColor.DarkGray;
-                                //Console.Write(" sql: ");
+                                Console.ForegroundColor = ConsoleColor.Cyan;
+                                Console.Write("? ");
                                 Console.BackgroundColor = origBackCol;
                                 Console.ForegroundColor = origForeCol;
                                 string query = "";
