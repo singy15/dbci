@@ -84,6 +84,7 @@ namespace dbci
                     try
                     {
                         var breakSignal = "@q";
+                        var statusSignal = "@s";
 
                         var origBackCol = Console.BackgroundColor;
                         var origForeCol = Console.ForegroundColor;
@@ -125,7 +126,7 @@ namespace dbci
                             {
                                 if (threadStatus[i] != 0) { continue; }
 
-                                Console.ForegroundColor = ConsoleColor.Cyan;
+                                Console.ForegroundColor = ConsoleColor.Yellow;
                                 Console.Write("{0}> ", i + 1);
                                 Console.BackgroundColor = origBackCol;
                                 Console.ForegroundColor = origForeCol;
@@ -139,8 +140,17 @@ namespace dbci
                                     }
                                     break;
                                 }
+                                if (filename.Trim() == statusSignal)
+                                {
+                                    Console.WriteLine("*** Status");
+                                    for (int j = 0; j < threads; j++)
+                                    {
+                                        Console.WriteLine("** THREAD {0} => {1}", j + 1, (threadStatus[j] == 0)? "READY" : "BUSY");
+                                    }
+                                    break;
+                                }
 
-                                Console.ForegroundColor = ConsoleColor.Cyan;
+                                Console.ForegroundColor = ConsoleColor.Yellow;
                                 Console.Write("? ");
                                 Console.BackgroundColor = origBackCol;
                                 Console.ForegroundColor = origForeCol;
