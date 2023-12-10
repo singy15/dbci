@@ -12,6 +12,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Globalization;
 
 namespace dbci
 {
@@ -24,17 +25,16 @@ namespace dbci
             app.Name = "dbci";
             app.Description = "dbci - DataBase Commandline Interface";
             app.HelpOption(template: "-?|-h|--help");
-            app.ExtendedHelpText = "";
 
             app.Command("exp", (cmd) =>
             {
-                cmd.Description = "Export table data as CSV file.";
+                cmd.Description = Resource.cmd_desc_exp; /*"Export table data as CSV file."*/;
                 cmd.HelpOption(template: "-?|-h|--help");
-                var argTarget = cmd.Argument("[target]", "Target database name to connect.");
-                var optTable = cmd.Option("-t|--table", "Table to export.", CommandOptionType.SingleValue);
-                var optQuery = cmd.Option("-q|--query", "Query to export.", CommandOptionType.SingleValue);
-                var optOut = cmd.Option("-o|--out", "Path to output.", CommandOptionType.SingleValue);
-                var optEncoding = cmd.Option("-e|--encoding", "Encoding {Shift_JIS|UTF-8}", CommandOptionType.SingleValue);
+                var argTarget = cmd.Argument("[target]", Resource.cmd_prm_general_target/*"Target database name to connect."*/);
+                var optTable = cmd.Option("-t|--table", Resource.cmd_prm_general_table_export/*"Table to export."*/, CommandOptionType.SingleValue);
+                var optQuery = cmd.Option("-q|--query", Resource.cmd_prm_general_query_export/*"Query to export."*/, CommandOptionType.SingleValue);
+                var optOut = cmd.Option("-o|--out", Resource.cmd_prm_general_filepath_out/*"Path to output."*/, CommandOptionType.SingleValue);
+                var optEncoding = cmd.Option("-e|--encoding", Resource.cmd_prm_general_encoding/*"Encoding {Shift_JIS|UTF-8}"*/, CommandOptionType.SingleValue);
 
                 cmd.OnExecute(() =>
                 {
@@ -73,11 +73,11 @@ namespace dbci
 
             app.Command("expi", (cmd) =>
             {
-                cmd.Description = "Export table data as CSV file.";
+                cmd.Description = Resource.cmd_desc_expi/*"Export table data as CSV file."*/;
                 cmd.HelpOption(template: "-?|-h|--help");
-                var argTarget = cmd.Argument("[target]", "Target database name to connect.");
-                var optEncoding = cmd.Option("-e|--encoding", "Encoding {Shift_JIS|UTF-8}", CommandOptionType.SingleValue);
-                var optParallel = cmd.Option("-p|--parallel", "Number of threads for parallel export.", CommandOptionType.SingleValue);
+                var argTarget = cmd.Argument("[target]", Resource.cmd_prm_general_target/*"Target database name to connect."*/);
+                var optEncoding = cmd.Option("-e|--encoding", Resource.cmd_prm_general_encoding/*"Encoding {Shift_JIS|UTF-8}"*/, CommandOptionType.SingleValue);
+                var optParallel = cmd.Option("-p|--parallel", Resource.cmd_prm_general_parallel/*"Number of threads for parallel export."*/, CommandOptionType.SingleValue);
 
                 cmd.OnExecute(() =>
                 {
@@ -100,8 +100,9 @@ namespace dbci
                             threadConnection[i] = conn;
                         }
 
-                        Console.WriteLine("*** dbci interactive export mode started.");
-                        Console.WriteLine("*** Enter @q to quit.");
+                        Console.WriteLine("*** " + Resource.cmd_message_expi_start /*dbci interactive export mode started."*/);
+                        Console.WriteLine("*** " + Resource.cmd_message_general_interactive_exit /*"Enter @q to quit."*/);
+                        Console.WriteLine("*** " + Resource.cmd_message_general_interactive_status /*"Enter @q to quit."*/);
                         Console.WriteLine("");
 
                         bool interrupt = false;
@@ -136,7 +137,7 @@ namespace dbci
                                     interrupt = true;
                                     if (threadActive > 0)
                                     {
-                                        Console.WriteLine("Waiting for other threads...");
+                                        Console.WriteLine(Resource.cmd_message_general_interactive_waiting/*"Waiting for other threads..."*/);
                                     }
                                     break;
                                 }
@@ -161,7 +162,7 @@ namespace dbci
                                     interrupt = true;
                                     if (threadActive > 0)
                                     {
-                                        Console.WriteLine("Waiting for other threads...");
+                                        Console.WriteLine(Resource.cmd_message_general_interactive_waiting/*"Waiting for other threads..."*/);
                                     }
                                     break;
                                 }
