@@ -85,6 +85,7 @@ namespace dbci
                     {
                         var breakSignal = "@q";
                         var statusSignal = "@s";
+                        var waitSignal = "@w";
 
                         var origBackCol = Console.BackgroundColor;
                         var origForeCol = Console.ForegroundColor;
@@ -106,6 +107,7 @@ namespace dbci
                         Console.WriteLine("");
 
                         bool interrupt = false;
+                        bool wait = false;
                         int threadActive = 0;
                         int sleepInterval = 100;
                         while (true)
@@ -123,6 +125,21 @@ namespace dbci
                                 }
                             }
 
+                            if (wait)
+                            {
+                                if (threadActive > 0)
+                                {
+                                    Thread.Sleep(sleepInterval);
+                                    continue;
+                                }
+                                else
+                                {
+                                    wait = false;
+                                    //Console.Beep();
+                                    continue;
+                                }
+                            }
+
                             for (int i = 0; i < threads; i++)
                             {
                                 if (threadStatus[i] != 0) { continue; }
@@ -135,6 +152,15 @@ namespace dbci
                                 if (filename.Trim() == breakSignal)
                                 {
                                     interrupt = true;
+                                    if (threadActive > 0)
+                                    {
+                                        Console.WriteLine(Resource.cmd_message_general_interactive_waiting/*"Waiting for other threads..."*/);
+                                    }
+                                    break;
+                                }
+                                if (filename.Trim() == waitSignal)
+                                {
+                                    wait = true;
                                     if (threadActive > 0)
                                     {
                                         Console.WriteLine(Resource.cmd_message_general_interactive_waiting/*"Waiting for other threads..."*/);
