@@ -12,6 +12,7 @@ using SqlKata.Compilers;
 using System.Dynamic;
 using dbci.Util;
 using System.Diagnostics;
+using Oracle.ManagedDataAccess.Client;
 
 namespace dbci
 {
@@ -19,42 +20,49 @@ namespace dbci
     {
         public int Export(string database, string path, string sql, IDbConnection conn, string encoding = "UTF-8")
         {
-            var dbutil = new DbUtil(conn);
-
             using (var tx = conn.BeginTransaction())
             {
 
                 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
                 using (var textWriter = new StreamWriter(path, false, Encoding.GetEncoding(encoding)))
                 using (var csv = new CsvWriter(textWriter, CultureInfo.InvariantCulture))
+                using (var cmd = tx.Connection.CreateCommand())
                 {
-                    using (var reader = dbutil.OpenReader(tx, sql))
+                    cmd.CommandText = sql;
+
+                    using (var reader = cmd.ExecuteReader())
                     {
+                        var provider = DataSourceUtil.Instance.GetProviderName(database);
+
+                        if(provider == "oracle")
+                        {
+                            ((OracleDataReader)reader).FetchSize = ((OracleCommand)cmd).RowSize * 10000;
+                        }
+
                         // Get schema
                         var schemaTable = reader.GetSchemaTable();
 
-                        // Write header
-                        foreach (DataRow row in schemaTable.Rows)
+                        var ncolumns = schemaTable.Rows.Count;
+                        var columns = new string[ncolumns];
+
+                        for (int i = 0; i < ncolumns; i++)
                         {
-                            csv.WriteField(row["ColumnName"]);
+                            columns[i] = (string)schemaTable.Rows[i]["ColumnName"];
+                        }
+
+                        // Write header
+                        for (int i = 0; i < ncolumns; i++) 
+                        {
+                            csv.WriteField(columns[i]);
                         }
                         csv.NextRecord();
-
-                        // Create DataTable for work
-                        DataTable dt = null;
-                        dt = new DataTable();
-                        foreach (DataRow row in schemaTable.Rows)
-                        {
-                            dt.Columns.Add((string)row["ColumnName"], (Type)row["DataType"]);
-                        }
 
                         // Write rows
                         while (reader.Read())
                         {
-                            foreach (DataRow row in schemaTable.Rows)
+                            for(int i = 0; i < ncolumns; i++)
                             {
-                                Object val = reader[(string)row["ColumnName"]];
-                                csv.WriteField(val);
+                                csv.WriteField(reader.GetValue(i));
                             }
                             csv.NextRecord();
                         }
@@ -164,8 +172,10 @@ namespace dbci
             return 0;
         }
 
-        public void BulkExport(string database, string dirPath, IDbConnection conn, List<string> tables, string encoding = "UTF-8") {
-            foreach (var tbl in tables) {
+        public void BulkExport(string database, string dirPath, IDbConnection conn, List<string> tables, string encoding = "UTF-8")
+        {
+            foreach (var tbl in tables)
+            {
                 Export(database, Path.Combine(Path.GetDirectoryName(Path.GetFullPath(dirPath)), tbl + ".csv"), $"select * from {tbl}", conn, encoding);
             }
         }
