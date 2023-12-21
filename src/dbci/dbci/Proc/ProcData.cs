@@ -13,6 +13,7 @@ using System.Dynamic;
 using dbci.Util;
 using System.Diagnostics;
 using Oracle.ManagedDataAccess.Client;
+using CsvHelper.Configuration;
 
 namespace dbci
 {
@@ -23,18 +24,35 @@ namespace dbci
             using (var tx = conn.BeginTransaction())
             {
 
+                var lineEndingChars = new char[] { '\r', '\n' };
+                var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+                {
+                    ShouldQuote = (ShouldQuoteArgs args) =>
+                    {
+                        var rowConfig = args.Row.Configuration;
+                        return args.Field.Contains(rowConfig.Quote)
+                        || args.Field[0] == ' '
+                        || args.Field[args.Field.Length - 1] == ' '
+                        || (rowConfig.Delimiter.Length > 0 && args.Field.Contains(rowConfig.Delimiter))
+                        || !rowConfig.IsNewLineSet && args.Field.IndexOfAny(lineEndingChars) > -1
+                        || rowConfig.IsNewLineSet && args.Field.Contains(rowConfig.NewLine);
+                    }
+                };
+
                 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
                 using (var textWriter = new StreamWriter(path, false, Encoding.GetEncoding(encoding)))
-                using (var csv = new CsvWriter(textWriter, CultureInfo.InvariantCulture))
+                using (var csv = new CsvWriter(textWriter, config))
                 using (var cmd = tx.Connection.CreateCommand())
                 {
                     cmd.CommandText = sql;
+
+                    csv.Context.TypeConverterOptionsCache.GetOptions<DateTime>().Formats = new string[] { "o" };
 
                     using (var reader = cmd.ExecuteReader())
                     {
                         var provider = DataSourceUtil.Instance.GetProviderName(database);
 
-                        if(provider == "oracle")
+                        if (provider == "oracle")
                         {
                             ((OracleDataReader)reader).FetchSize = ((OracleCommand)cmd).RowSize * 10000;
                         }
@@ -51,7 +69,7 @@ namespace dbci
                         }
 
                         // Write header
-                        for (int i = 0; i < ncolumns; i++) 
+                        for (int i = 0; i < ncolumns; i++)
                         {
                             csv.WriteField(columns[i]);
                         }
@@ -60,7 +78,7 @@ namespace dbci
                         // Write rows
                         while (reader.Read())
                         {
-                            for(int i = 0; i < ncolumns; i++)
+                            for (int i = 0; i < ncolumns; i++)
                             {
                                 csv.WriteField(reader.GetValue(i));
                             }
