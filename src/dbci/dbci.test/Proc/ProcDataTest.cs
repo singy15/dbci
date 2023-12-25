@@ -189,6 +189,77 @@ namespace dbci.test
             //}
         }
 
+
+        [Test]
+        public void Test__ExportParallel__2__oracle()
+        {
+            var db = "test-oracle";
+
+            var encoding = "Shift_JIS";
+
+            var nThread = 4;
+            var connections = new IDbConnection[nThread];
+            for (int i = 0; i < nThread; i++)
+            {
+                connections[i] = DataSourceUtil.Instance.CreateConnection(db);
+                connections[i].Open();
+            }
+
+            var columns = new string[] {
+                "ID","C1","C2","C3","C4","C5","C6","C7","C8","C9","C10","N1","N2","N3","N4","N5","N6","N7","N8","N9","N10"
+            };
+            var columnCountPerThread = (int)Math.Floor((decimal)(columns.Length) / (decimal)nThread);
+
+            var memoryStreams = new MemoryStream[nThread];
+            for (int i = 0; i < nThread; i++)
+            {
+                memoryStreams[i] = new MemoryStream();
+            }
+
+            Parallel.For(0, nThread, x =>
+            {
+                using (var cmd = connections[x].CreateCommand())
+                {
+                    string[] columnsOfThread;
+                    if (x == (nThread - 1))
+                    {
+                        columnsOfThread = columns.Skip(x * columnCountPerThread).TakeWhile((s) => { return true; }).ToArray();
+                    }
+                    else
+                    {
+                        columnsOfThread = columns.Skip(x * columnCountPerThread).Take(columnCountPerThread).ToArray();
+                    }
+                    cmd.CommandText = $"SELECT {string.Join(",", columnsOfThread)} FROM LGSALE";
+                    new ProcData().ExportParallel2(db, memoryStreams[x], connections[x], cmd, encoding);
+                }
+            });
+
+            var streamReaders = new StreamReader[nThread];
+            for (int i = 0; i < nThread; i++)
+            {
+                memoryStreams[i].Seek(0, SeekOrigin.Begin);
+                streamReaders[i] = new StreamReader(memoryStreams[i]);
+            }
+
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            using (var writer = new StreamWriter(@"0.csv", false, Encoding.GetEncoding(encoding)))
+            {
+                while (!streamReaders[0].EndOfStream)
+                {
+                    for (int i = 0; i < nThread; i++)
+                    {
+                        if (i != 0)
+                        {
+                            writer.Write(",");
+                        }
+                        writer.Write(streamReaders[i].ReadLine());
+                    }
+
+                    writer.Write(Environment.NewLine);
+                }
+            }
+        }
+
         [Test]
         public void Test__Import__sqlite3()
         {

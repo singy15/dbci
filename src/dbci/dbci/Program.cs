@@ -13,6 +13,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Globalization;
+using System.Text;
 
 namespace dbci
 {
@@ -57,6 +58,102 @@ namespace dbci
                                 (optQuery.HasValue()) ? optQuery.Value() : $"select * from {optTable.Value()}",
                                 conn,
                                 ((optEncoding.HasValue()) ? optEncoding.Value() : "UTF-8"));
+                            conn.Close();
+                        }
+                        return 0;
+                    }
+                    catch (BusinessLogicException ex)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine($"ERROR: {ex.Message}");
+                        Console.ResetColor();
+                        return 1;
+                    }
+                });
+            });
+
+            app.Command("expf", (cmd) =>
+            {
+                cmd.Description = Resource.cmd_desc_exp; /*"Export table data as CSV file."*/;
+                cmd.HelpOption(template: "-?|-h|--help");
+                var argTarget = cmd.Argument("[target]", Resource.cmd_prm_general_target/*"Target database name to connect."*/);
+                var argQuery = cmd.Argument("[query]", Resource.cmd_prm_general_query_export/*"Table to export."*/);
+                var argColumns = cmd.Argument("[columns]", "Columns");
+                var argOut = cmd.Argument("[out]", "Path to output.");
+                var argThread = cmd.Argument("[thread]", "Number of threads");
+                var optEncoding = cmd.Option("-e|--encoding", Resource.cmd_prm_general_encoding/*"Encoding {Shift_JIS|UTF-8}"*/, CommandOptionType.SingleValue);
+
+                cmd.OnExecute(() =>
+                {
+                    try
+                    {
+                        using (var conn = DataSourceUtil.Instance.CreateConnection(argTarget.Value))
+                        {
+                            var filename = argOut.Value;
+                            conn.Open();
+                            var proc = new ProcData();
+
+
+                            var nThread = int.Parse(argThread.Value);
+                            var connections = new IDbConnection[nThread];
+                            for (int i = 0; i < nThread; i++)
+                            {
+                                connections[i] = DataSourceUtil.Instance.CreateConnection(argTarget.Value);
+                                connections[i].Open();
+                            }
+
+                            var columns = argColumns.Value.Split(",").Select(s => s.Trim()).ToArray<string>();
+                            var columnCountPerThread = (int)Math.Floor((decimal)(columns.Length) / (decimal)nThread);
+
+                            var memoryStreams = new MemoryStream[nThread];
+                            for (int i = 0; i < nThread; i++)
+                            {
+                                memoryStreams[i] = new MemoryStream();
+                            }
+
+                            Parallel.For(0, nThread, x =>
+                            {
+                                using (var cmd = connections[x].CreateCommand())
+                                {
+                                    string[] columnsOfThread;
+                                    if (x == (nThread - 1))
+                                    {
+                                        columnsOfThread = columns.Skip(x * columnCountPerThread).TakeWhile((s) => { return true; }).ToArray();
+                                    }
+                                    else
+                                    {
+                                        columnsOfThread = columns.Skip(x * columnCountPerThread).Take(columnCountPerThread).ToArray();
+                                    }
+                                    cmd.CommandText = argQuery.Value.Replace("?COLUMNS?", string.Join(",", columnsOfThread));
+                                    new ProcData().ExportParallel2(argTarget.Value, memoryStreams[x], connections[x], cmd, ((optEncoding.HasValue()) ? optEncoding.Value() : "UTF-8"));
+                                }
+                            });
+
+                            var streamReaders = new StreamReader[nThread];
+                            for (int i = 0; i < nThread; i++)
+                            {
+                                memoryStreams[i].Seek(0, SeekOrigin.Begin);
+                                streamReaders[i] = new StreamReader(memoryStreams[i]);
+                            }
+
+                            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                            using (var writer = new StreamWriter(argOut.Value, false, Encoding.GetEncoding(((optEncoding.HasValue()) ? optEncoding.Value() : "UTF-8"))))
+                            {
+                                while (!streamReaders[0].EndOfStream)
+                                {
+                                    for (int i = 0; i < nThread; i++)
+                                    {
+                                        if (i != 0)
+                                        {
+                                            writer.Write(",");
+                                        }
+                                        writer.Write(streamReaders[i].ReadLine());
+                                    }
+
+                                    writer.Write(Environment.NewLine);
+                                }
+                            }
+
                             conn.Close();
                         }
                         return 0;
@@ -172,7 +269,7 @@ namespace dbci
                                     Console.WriteLine("*** Status");
                                     for (int j = 0; j < threads; j++)
                                     {
-                                        Console.WriteLine("** THREAD {0} => {1}", j + 1, (threadStatus[j] == 0)? "READY" : "BUSY");
+                                        Console.WriteLine("** THREAD {0} => {1}", j + 1, (threadStatus[j] == 0) ? "READY" : "BUSY");
                                     }
                                     break;
                                 }

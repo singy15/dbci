@@ -180,6 +180,80 @@ namespace dbci
             return 0;
         }
 
+
+        public int ExportParallel2(string database, MemoryStream memoryStream, IDbConnection conn, IDbCommand cmd, string encoding = "UTF-8")
+        {
+            using (var tx = conn.BeginTransaction())
+            {
+                var lineEndingChars = new char[] { '\r', '\n' };
+                var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+                {
+                    ShouldQuote = (ShouldQuoteArgs args) =>
+                    {
+                        var rowConfig = args.Row.Configuration;
+                        return args.Field.Contains(rowConfig.Quote)
+                        || args.Field[0] == ' '
+                        || args.Field[args.Field.Length - 1] == ' '
+                        || (rowConfig.Delimiter.Length > 0 && args.Field.Contains(rowConfig.Delimiter))
+                        || !rowConfig.IsNewLineSet && args.Field.IndexOfAny(lineEndingChars) > -1
+                        || rowConfig.IsNewLineSet && args.Field.Contains(rowConfig.NewLine);
+                    }
+                };
+
+                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                using (var textWriter = new StreamWriter(memoryStream, Encoding.GetEncoding(encoding), -1, true))
+                using (var streamReader = new StreamReader(memoryStream, Encoding.GetEncoding(encoding), true, -1, true))
+                using (var csv = new CsvWriter(textWriter, config))
+                {
+                    csv.Context.TypeConverterOptionsCache.GetOptions<DateTime>().Formats = new string[] { "o" };
+
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        var provider = DataSourceUtil.Instance.GetProviderName(database);
+
+                        if (provider == "oracle")
+                        {
+                            ((OracleDataReader)reader).FetchSize = ((OracleCommand)cmd).RowSize * 10000;
+                        }
+
+                        // Get schema
+                        var schemaTable = reader.GetSchemaTable();
+
+                        var ncolumns = schemaTable.Rows.Count;
+                        var columns = new string[ncolumns];
+
+                        for (int i = 0; i < ncolumns; i++)
+                        {
+                            columns[i] = (string)schemaTable.Rows[i]["ColumnName"];
+                        }
+
+                        // Write header
+                        for (int i = 0; i < ncolumns; i++)
+                        {
+                            csv.WriteField(columns[i]);
+                        }
+                        csv.NextRecord();
+
+                        // Write rows
+                        while (reader.Read())
+                        {
+                            for (int i = 0; i < ncolumns; i++)
+                            {
+                                csv.WriteField(reader.GetValue(i));
+                            }
+                            csv.NextRecord();
+                        }
+
+                        reader.Close();
+
+                        csv.Flush();
+                    }
+                }
+            }
+
+            return 0;
+        }
+
         public int Import(string database, string path, string table, IDbConnection conn, string initScript = "")
         {
             var sqlgen = new CompatibleSqlGenerator();
