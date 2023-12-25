@@ -58,7 +58,7 @@ namespace dbci
             return GetDataSourceSetting(name).ProviderName;
         }
 
-        private ConnectionStringSettings GetDataSourceSetting(string name) { 
+        public ConnectionStringSettings GetDataSourceSetting(string name) { 
             ConnectionStringSettings settings = ConfigurationManager.ConnectionStrings[name];
             if (null == settings)
             {
