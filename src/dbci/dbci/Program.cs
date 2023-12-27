@@ -189,10 +189,12 @@ namespace dbci
 
                         int threads = (optParallel.HasValue()) ? int.Parse(optParallel.Value()) : 1;
                         int[] threadStatus = new int[threads];
+                        string[] threadFilename = new string[threads];
                         IDbConnection[] threadConnection = new IDbConnection[threads];
                         for (int i = 0; i < threads; i++)
                         {
                             threadStatus[i] = 0;
+                            threadFilename[i] = "";
                             var conn = DataSourceUtil.Instance.CreateConnection(argTarget.Value);
                             conn.Open();
                             threadConnection[i] = conn;
@@ -205,35 +207,29 @@ namespace dbci
 
                         bool interrupt = false;
                         bool wait = false;
-                        int threadActive = 0;
                         int sleepInterval = 100;
+                        var sync = new object();
                         while (true)
                         {
-                            if (interrupt)
+                            if (interrupt || wait)
                             {
-                                if (threadActive > 0)
+                                if (threadStatus.Sum() > 0)
                                 {
                                     Thread.Sleep(sleepInterval);
                                     continue;
                                 }
                                 else
                                 {
-                                    break;
-                                }
-                            }
-
-                            if (wait)
-                            {
-                                if (threadActive > 0)
-                                {
-                                    Thread.Sleep(sleepInterval);
-                                    continue;
-                                }
-                                else
-                                {
-                                    wait = false;
-                                    //Console.Beep();
-                                    continue;
+                                    if (interrupt)
+                                    {
+                                        break;
+                                    }
+                                    else if (wait)
+                                    {
+                                        wait = false;
+                                        //Console.Beep();
+                                        continue;
+                                    }
                                 }
                             }
 
@@ -249,7 +245,7 @@ namespace dbci
                                 if (filename.Trim() == breakSignal)
                                 {
                                     interrupt = true;
-                                    if (threadActive > 0)
+                                    if (threadStatus.Sum() > 0)
                                     {
                                         Console.WriteLine(Resource.cmd_message_general_interactive_waiting/*"Waiting for other threads..."*/);
                                     }
@@ -258,7 +254,7 @@ namespace dbci
                                 if (filename.Trim() == waitSignal)
                                 {
                                     wait = true;
-                                    if (threadActive > 0)
+                                    if (threadStatus.Sum() > 0)
                                     {
                                         Console.WriteLine(Resource.cmd_message_general_interactive_waiting/*"Waiting for other threads..."*/);
                                     }
@@ -269,7 +265,7 @@ namespace dbci
                                     Console.WriteLine("*** Status");
                                     for (int j = 0; j < threads; j++)
                                     {
-                                        Console.WriteLine("** THREAD {0} => {1}", j + 1, (threadStatus[j] == 0) ? "READY" : "BUSY");
+                                        Console.WriteLine("** THREAD {0} => {1}  {2}", j + 1, (threadStatus[j] == 0) ? "READY" : "BUSY", threadFilename[j]);
                                     }
                                     break;
                                 }
@@ -283,7 +279,7 @@ namespace dbci
                                 if (!result)
                                 {
                                     interrupt = true;
-                                    if (threadActive > 0)
+                                    if (threadStatus.Sum() > 0)
                                     {
                                         Console.WriteLine(Resource.cmd_message_general_interactive_waiting/*"Waiting for other threads..."*/);
                                     }
@@ -291,8 +287,8 @@ namespace dbci
                                 }
 
                                 int n = i;
-                                threadActive = threadActive + 1;
                                 threadStatus[n] = 1;
+                                threadFilename[n] = filename;
                                 var t = Task.Run(() =>
                                 {
                                     try
@@ -315,10 +311,12 @@ namespace dbci
                                         Console.WriteLine("");
                                         Console.ForegroundColor = origForeCol;
                                     }
-                                    finally
+                                    finally { }
+
+                                    lock (sync)
                                     {
                                         threadStatus[n] = 0;
-                                        threadActive = threadActive - 1;
+                                        threadFilename[n] = "";
                                     }
                                 });
                             }
