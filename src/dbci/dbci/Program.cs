@@ -180,6 +180,7 @@ namespace dbci
                 {
                     try
                     {
+
                         var breakSignal = "@q";
                         var statusSignal = "@s";
                         var waitSignal = "@w";
@@ -188,16 +189,12 @@ namespace dbci
                         var origForeCol = Console.ForegroundColor;
 
                         int threads = (optParallel.HasValue()) ? int.Parse(optParallel.Value()) : 1;
-                        int[] threadStatus = new int[threads];
-                        string[] threadFilename = new string[threads];
-                        IDbConnection[] threadConnection = new IDbConnection[threads];
+                        ExportWorker[] workers = new ExportWorker[threads];
                         for (int i = 0; i < threads; i++)
                         {
-                            threadStatus[i] = 0;
-                            threadFilename[i] = "";
                             var conn = DataSourceUtil.Instance.CreateConnection(argTarget.Value);
                             conn.Open();
-                            threadConnection[i] = conn;
+                            workers[i] = new ExportWorker((i + 1).ToString(), argTarget.Value, conn);
                         }
 
                         Console.WriteLine("*** " + Resource.cmd_message_expi_start /*dbci interactive export mode started."*/);
@@ -205,17 +202,51 @@ namespace dbci
                         Console.WriteLine("*** " + Resource.cmd_message_general_interactive_status /*"Enter @q to quit."*/);
                         Console.WriteLine("");
 
+                        Func<ExportWorker> getAvailableWorker = () =>
+                        {
+                            return workers.FirstOrDefault(w => w.IsReady());
+                        };
+
+                        Func<bool> isWorkerRunning = () =>
+                        {
+                            return workers.Any(w => !(w.IsReady()));
+                        };
+
+                        Action clearCurrentConsoleLine = () =>
+                        {
+                            int currentLineCursor = Console.CursorTop;
+                            Console.SetCursorPosition(0, Console.CursorTop);
+                            Console.Write(new string(' ', Console.WindowWidth));
+                            Console.SetCursorPosition(0, currentLineCursor);
+                        };
+
+                        Action printWorkerStatus = () =>
+                        {
+                            for (int j = 0; j < threads; j++)
+                            {
+                                Console.WriteLine("thread {0} => {1}  {2}", j + 1, (workers[j].IsReady()) ? "ready" : "busy", workers[j].OutputFilename);
+                            }
+                        };
+
                         bool interrupt = false;
                         bool wait = false;
                         int sleepInterval = 100;
-                        var sync = new object();
                         while (true)
                         {
                             if (interrupt || wait)
                             {
-                                if (threadStatus.Sum() > 0)
+                                if (isWorkerRunning())
                                 {
                                     Thread.Sleep(sleepInterval);
+
+                                    for (int c = 0; c < (threads); c++)
+                                    {
+                                        Console.SetCursorPosition(0, Console.CursorTop - 1);
+                                        clearCurrentConsoleLine();
+                                    }
+
+                                    printWorkerStatus();
+
                                     continue;
                                 }
                                 else
@@ -233,100 +264,71 @@ namespace dbci
                                 }
                             }
 
-                            for (int i = 0; i < threads; i++)
+                            var worker = getAvailableWorker();
+
+                            if (null == worker)
                             {
-                                if (threadStatus[i] != 0) { continue; }
-
-                                Console.ForegroundColor = ConsoleColor.Yellow;
-                                Console.Write("{0}> ", i + 1);
-                                Console.BackgroundColor = origBackCol;
-                                Console.ForegroundColor = origForeCol;
-                                var filename = Console.ReadLine();
-                                if (filename.Trim() == breakSignal)
-                                {
-                                    interrupt = true;
-                                    if (threadStatus.Sum() > 0)
-                                    {
-                                        Console.WriteLine(Resource.cmd_message_general_interactive_waiting/*"Waiting for other threads..."*/);
-                                    }
-                                    break;
-                                }
-                                if (filename.Trim() == waitSignal)
-                                {
-                                    wait = true;
-                                    if (threadStatus.Sum() > 0)
-                                    {
-                                        Console.WriteLine(Resource.cmd_message_general_interactive_waiting/*"Waiting for other threads..."*/);
-                                    }
-                                    break;
-                                }
-                                if (filename.Trim() == statusSignal)
-                                {
-                                    Console.WriteLine("*** Status");
-                                    for (int j = 0; j < threads; j++)
-                                    {
-                                        Console.WriteLine("** THREAD {0} => {1}  {2}", j + 1, (threadStatus[j] == 0) ? "READY" : "BUSY", threadFilename[j]);
-                                    }
-                                    break;
-                                }
-
-                                Console.ForegroundColor = ConsoleColor.Yellow;
-                                Console.Write("? ");
-                                Console.BackgroundColor = origBackCol;
-                                Console.ForegroundColor = origForeCol;
-                                string query = "";
-                                bool result = ReadMultiLineQuery(out query, breakSignal);
-                                if (!result)
-                                {
-                                    interrupt = true;
-                                    if (threadStatus.Sum() > 0)
-                                    {
-                                        Console.WriteLine(Resource.cmd_message_general_interactive_waiting/*"Waiting for other threads..."*/);
-                                    }
-                                    break;
-                                }
-
-                                int n = i;
-                                threadStatus[n] = 1;
-                                threadFilename[n] = filename;
-                                var t = Task.Run(() =>
-                                {
-                                    try
-                                    {
-                                        var conn = threadConnection[n];
-                                        var proc = new ProcData();
-                                        proc.Export(
-                                            argTarget.Value,
-                                            Path.GetFullPath(filename),
-                                            // TODO: Risk of SQL injection
-                                            query,
-                                            conn,
-                                            ((optEncoding.HasValue()) ? optEncoding.Value() : "UTF-8"));
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Console.ForegroundColor = ConsoleColor.Red;
-                                        Console.WriteLine("");
-                                        Console.WriteLine(ex.Message);
-                                        Console.WriteLine("");
-                                        Console.ForegroundColor = origForeCol;
-                                    }
-                                    finally { }
-
-                                    lock (sync)
-                                    {
-                                        threadStatus[n] = 0;
-                                        threadFilename[n] = "";
-                                    }
-                                });
+                                Thread.Sleep(sleepInterval);
+                                continue;
                             }
+
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.Write("{0}> ", worker.WorkerId);
+                            Console.BackgroundColor = origBackCol;
+                            Console.ForegroundColor = origForeCol;
+                            var filename = Console.ReadLine().Trim();
+                            if (filename == breakSignal)
+                            {
+                                interrupt = true;
+                                if (isWorkerRunning())
+                                {
+                                    Console.WriteLine(Resource.cmd_message_general_interactive_waiting/*"Waiting for other threads..."*/);
+                                    printWorkerStatus();
+                                }
+                                //break;
+                                continue;
+                            }
+                            if (filename == waitSignal)
+                            {
+                                wait = true;
+                                if (isWorkerRunning())
+                                {
+                                    Console.WriteLine(Resource.cmd_message_general_interactive_waiting/*"Waiting for other threads..."*/);
+                                    printWorkerStatus();
+                                }
+                                //break;
+                                continue;
+                            }
+                            if (filename == statusSignal)
+                            {
+                                printWorkerStatus();
+                                continue;
+                            }
+
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.Write("? ");
+                            Console.BackgroundColor = origBackCol;
+                            Console.ForegroundColor = origForeCol;
+                            string query = "";
+                            bool result = ReadMultiLineQuery(out query, breakSignal);
+                            if (!result)
+                            {
+                                interrupt = true;
+                                if (isWorkerRunning())
+                                {
+                                    Console.WriteLine(Resource.cmd_message_general_interactive_waiting/*"Waiting for other threads..."*/);
+                                }
+                                continue;
+                            }
+
+                            worker.StartExport(argTarget.Value, filename, query, ((optEncoding.HasValue()) ? optEncoding.Value() : "UTF-8"));
 
                             Thread.Sleep(sleepInterval);
                         }
 
                         for (int i = 0; i < threads; i++)
                         {
-                            threadConnection[i].Close();
+                            workers[i].Connection.Close();
                         }
 
                         return 0;
@@ -618,6 +620,64 @@ namespace dbci
 
             query = text;
             return true;
+        }
+    }
+
+    class ExportWorker
+    {
+        public string WorkerId { get; set; }
+
+        public string TargetDatabase { get; set; }
+
+        public string OutputFilename { get; set; }
+
+        public IDbConnection Connection { get; set; }
+
+        public Task ExportTask { get; set; }
+
+        public ExportWorker(string workerId, string database, IDbConnection connection)
+        {
+            WorkerId = workerId;
+            TargetDatabase = database;
+            Connection = connection;
+        }
+
+        public void StartExport(string database, string filename, string query, string encoding)
+        {
+            OutputFilename = filename;
+
+            ExportTask = Task.Run(() =>
+            {
+                try
+                {
+                    var proc = new ProcData();
+                    proc.Export(
+                        TargetDatabase,
+                        Path.GetFullPath(filename),
+                        // TODO: Risk of SQL injection
+                        query,
+                        Connection,
+                        encoding);
+                }
+                catch (Exception ex)
+                {
+                    var origForeCol = Console.ForegroundColor;
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("");
+                    Console.WriteLine(ex.Message);
+                    Console.WriteLine("");
+                    Console.ForegroundColor = origForeCol;
+                }
+                finally
+                {
+                    OutputFilename = "";
+                }
+            });
+        }
+
+        public bool IsReady()
+        {
+            return ExportTask == null || (ExportTask.Status != TaskStatus.Running);
         }
     }
 }
