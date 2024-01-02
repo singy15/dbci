@@ -31,8 +31,8 @@ namespace dbci
                     {
                         var rowConfig = args.Row.Configuration;
                         return args.Field.Contains(rowConfig.Quote)
-                        || args.Field[0] == ' '
-                        || args.Field[args.Field.Length - 1] == ' '
+                        || args.Field.StartsWith(' ')
+                        || args.Field.EndsWith(' ')
                         || (rowConfig.Delimiter.Length > 0 && args.Field.Contains(rowConfig.Delimiter))
                         || !rowConfig.IsNewLineSet && args.Field.IndexOfAny(lineEndingChars) > -1
                         || rowConfig.IsNewLineSet && args.Field.Contains(rowConfig.NewLine);
